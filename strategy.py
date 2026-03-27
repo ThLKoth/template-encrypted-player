@@ -32,20 +32,51 @@ def strategy(state: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
     """
     my_id = state.get("myPlayerId")
     opponents = state.get("opponentsIds") or []
-
+    history = state.get("state") or []
+    
     if not my_id or not opponents:
         return {"shoot": {}, "keep": {}}
-
-    # Example: random strategy
-    # Replace this with your actual strategy logic
-    # You can analyze state.get("state", []) to see previous turns
-    # and make decisions based on opponent behavior
     
-    shoot = np.random.randint(0, 3, len(opponents)).tolist()
-    keep = np.random.randint(0, 3, len(opponents)).tolist()
+    recent_history = history[-10:]
 
-    return {
-        "shoot": {pid: int(direction) for pid, direction in zip(opponents, shoot)},
-        "keep": {pid: int(direction) for pid, direction in zip(opponents, keep)},
-    }
+    for opp_id in opponents:
+        opp_shoot_counts = {0: 0, 1: 0, 2: 0}
+        opp_keep_counts = {0: 0, 1: 0, 2: 0}
 
+    for turn in recent_history:
+            opp_actions = turn.get(opp_id, {})
+
+            opp_shoot = opp_actions.get("shoot", {}).get(my_id)
+            if opp_shoot is not None:
+                opp_shoot_counts[opp_shoot] += 1
+
+            opp_keep = opp_actions.get("keep", {}).get(my_id)
+            if opp_keep is not None:
+                opp_keep_counts[opp_keep] += 1
+                if total_opp_shoots > 0:
+                    keep_probs = [opp_shoot_counts[i] / total_opp_shoots for i in range(3)]
+                    keep_actions[opp_id] = int(np.random.choice([0, 1, 2], p=keep_probs))
+                    
+        total_opp_shoots = sum(opp_shoot_counts.values())
+        if total_opp_shoots > 0:
+            keep_probs = [opp_shoot_counts[i] / total_opp_shoots for i in range(3)]
+            keep_actions[opp_id] = int(np.random.choice([0, 1, 2], p=keep_probs))
+        else:
+            keep_actions[opp_id] = int(np.random.randint(0, 3))
+
+        total_opp_keeps = sum(opp_keep_counts.values())
+        if total_opp_keeps > 0:
+            inverse_weights = [total_opp_keeps - opp_keep_counts[i] for i in range(3)]
+            total_inverse = sum(inverse_weights)
+            
+            if total_inverse > 0:
+                shoot_probs = [w / total_inverse for w in inverse_weights]
+                shoot_actions[opp_id] = int(np.random.choice([0, 1, 2], p=shoot_probs))
+            else:
+                shoot_actions[opp_id] = int(np.random.randint(0, 3))
+        else:
+            # Fallback to random if no history exists yet
+            shoot_actions[opp_id] = int(np.random.randint(0, 3))
+        
+    return {"shoot": shoot_actions,
+        "keep": keep_actions,}
