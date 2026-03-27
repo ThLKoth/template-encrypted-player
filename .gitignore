@@ -9,3 +9,4 @@ strategy.py
 .venv/
 __pycache__/
 
+strategy.py
